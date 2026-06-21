@@ -7,12 +7,56 @@ LANG_FILE="${DIR_REMNAWAVE}selected_language"
 SCRIPT_URL="https://raw.githubusercontent.com/houqai/remnawave-reverse-proxy/refs/heads/main/install_remnawave.sh"
 LANG_BASE_URL="https://raw.githubusercontent.com/houqai/remnawave-reverse-proxy/refs/heads/main/src/lang"
 
-COLOR_RESET="\033[0m"
-COLOR_GREEN="\033[1;32m"
-COLOR_YELLOW="\033[1;33m"
-COLOR_WHITE="\033[1;37m"
-COLOR_RED="\033[1;31m"
-COLOR_GRAY='\033[0;90m'
+# ─── Palette (Claude-style coral theme) ──────────────────────────────────────
+# Truecolor ANSI. Auto-disabled on non-tty / NO_COLOR / dumb terminals so piped
+# output and log files stay clean. COLOR_GREEN is remapped to coral on purpose:
+# it is the script-wide "primary accent" token (titles/prompts), so every existing
+# call site repaints to the Claude look without being touched individually.
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-}" != "dumb" ]; then
+    COLOR_RESET="\033[0m"
+    COLOR_CORAL="\033[38;2;217;119;87m"      # Claude signature coral #D97757
+    COLOR_CORAL_B="\033[1;38;2;217;119;87m"  # bold coral
+    COLOR_GREEN="\033[1;38;2;217;119;87m"    # primary accent -> coral
+    COLOR_YELLOW="\033[38;2;221;181;126m"    # warm sand (menu items / warnings)
+    COLOR_WHITE="\033[1;38;2;245;245;245m"   # bright text
+    COLOR_RED="\033[38;2;224;104;90m"        # soft red (errors)
+    COLOR_GRAY="\033[38;2;138;138;138m"      # dim secondary
+    COLOR_DIM="\033[38;2;110;110;110m"       # rules / borders
+    COLOR_OK="\033[38;2;127;176;105m"        # success green (status glyphs)
+else
+    COLOR_RESET=""; COLOR_CORAL=""; COLOR_CORAL_B=""; COLOR_GREEN=""; COLOR_YELLOW=""
+    COLOR_WHITE=""; COLOR_RED=""; COLOR_GRAY=""; COLOR_DIM=""; COLOR_OK=""
+fi
+
+# ─── UI helpers (Claude-style) ───────────────────────────────────────────────
+UI_WIDTH=58
+_ui_rule() { local n="${1:-$UI_WIDTH}" ch="${2:-─}" out="" i; for ((i=0; i<n; i++)); do out+="$ch"; done; printf '%s' "$out"; }
+ui_hr()      { printf "%b%s%b\n" "$COLOR_DIM" "$(_ui_rule "${1:-$UI_WIDTH}")" "$COLOR_RESET"; }
+ui_box_top() { printf "%b╭%s╮%b\n" "$COLOR_CORAL" "$(_ui_rule "$UI_WIDTH")" "$COLOR_RESET"; }
+ui_box_bot() { printf "%b╰%s╯%b\n" "$COLOR_CORAL" "$(_ui_rule "$UI_WIDTH")" "$COLOR_RESET"; }
+ui_box_line() { # <text> [text-color]
+    local text="$1" col="${2:-$COLOR_RESET}" len pad
+    len=${#text}; pad=$(( UI_WIDTH - 2 - len )); (( pad < 0 )) && pad=0
+    printf "%b│%b %b%s%b%*s %b│%b\n" "$COLOR_CORAL" "$COLOR_RESET" "$col" "$text" "$COLOR_RESET" "$pad" "" "$COLOR_CORAL" "$COLOR_RESET"
+}
+menu_item()  { printf "  %b%2s%b  %s\n" "$COLOR_CORAL_B" "$1" "$COLOR_RESET" "$2"; }
+menu_head()  { printf "\n%b  %s%b\n" "$COLOR_DIM" "$1" "$COLOR_RESET"; }
+msg_ok()     { printf "%b ✓%b %s\n" "$COLOR_OK"     "$COLOR_RESET" "$*"; }
+msg_warn()   { printf "%b !%b %s\n" "$COLOR_YELLOW" "$COLOR_RESET" "$*"; }
+msg_err()    { printf "%b ✗%b %s\n" "$COLOR_RED"    "$COLOR_RESET" "$*" >&2; }
+msg_info()   { printf "%b ·%b %s\n" "$COLOR_CORAL"  "$COLOR_RESET" "$*"; }
+
+print_header() {
+    clear 2>/dev/null || true
+    local ver="v${SCRIPT_VERSION}"
+    [[ "${UPDATE_AVAILABLE:-false}" == true ]] && ver="v${SCRIPT_VERSION}   ·   update available"
+    echo
+    ui_box_top
+    ui_box_line "✻  remnawave reverse-proxy" "$COLOR_CORAL_B"
+    ui_box_line "reverse-proxy & node manager" "$COLOR_GRAY"
+    ui_box_line "$ver" "$COLOR_GRAY"
+    ui_box_bot
+}
 
 # Download file with multiple mirrors and validation
 download_with_mirrors() {
@@ -129,11 +173,11 @@ declare -gA LANG=(
 )
 
 show_language() {
-    echo -e "${COLOR_GREEN}${LANG[CHOOSE_LANG]}${COLOR_RESET}"
-    echo -e ""
-    echo -e "${COLOR_YELLOW}1. ${LANG[LANG_EN]}${COLOR_RESET}"
-    echo -e "${COLOR_YELLOW}2. ${LANG[LANG_RU]}${COLOR_RESET}"
-    echo -e ""
+    print_header
+    menu_head "${LANG[CHOOSE_LANG]}"
+    menu_item 1 "${LANG[LANG_EN]}"
+    menu_item 2 "${LANG[LANG_RU]}"
+    echo
 }
 
 set_language() {
@@ -559,59 +603,55 @@ check_update_status() {
 }
 
 show_menu() {
-    echo -e "${COLOR_GREEN}${LANG[MENU_TITLE]}${COLOR_RESET}"
-    if [[ "$UPDATE_AVAILABLE" == true ]]; then
-		echo -e "${COLOR_GRAY}$(printf "${LANG[VERSION_LABEL]}" "$SCRIPT_VERSION ${COLOR_RED}${LANG[AVAILABLE_UPDATE]}${COLOR_RESET}")${COLOR_RESET}"
-    else
-		echo -e "${COLOR_GRAY}$(printf "${LANG[VERSION_LABEL]}" "$SCRIPT_VERSION")${COLOR_RESET}"
-    fi
-    echo -e "${COLOR_GRAY}Wiki: https://wiki.egam.es/${COLOR_RESET}"
-    echo -e ""
-    echo -e "${COLOR_YELLOW}1. ${LANG[MENU_1]}${COLOR_RESET}" # Install Remnawave Components
-    echo -e "${COLOR_YELLOW}2. ${LANG[MENU_2]}${COLOR_RESET}" # Reinstall panel/node
-    echo -e "${COLOR_YELLOW}3. ${LANG[MENU_3]}${COLOR_RESET}" # Manage panel/node
-    echo -e ""
-    echo -e "${COLOR_YELLOW}4. ${LANG[MENU_4]}${COLOR_RESET}" # Install random template
-    echo -e "${COLOR_YELLOW}5. ${LANG[MENU_5]}${COLOR_RESET}" # Custom Templates legiz
-    echo -e "${COLOR_YELLOW}6. ${LANG[MENU_6]}${COLOR_RESET}" # WARP Native
-    echo -e "${COLOR_YELLOW}7. ${LANG[MENU_7]}${COLOR_RESET}" # Backup and Restore
-    echo -e ""
-    echo -e "${COLOR_YELLOW}8. ${LANG[MENU_8]}${COLOR_RESET}" # Manage IPv6
-    echo -e "${COLOR_YELLOW}9. ${LANG[MENU_9]}${COLOR_RESET}" # Manage certificates domain
-    echo -e ""
-    echo -e "${COLOR_YELLOW}10. ${LANG[MENU_10]}${COLOR_RESET}" # Check for updates
-    echo -e "${COLOR_YELLOW}11. ${LANG[MENU_11]}${COLOR_RESET}" # Remove script
-    echo -e ""
-    echo -e "${COLOR_YELLOW}0. ${LANG[EXIT]}${COLOR_RESET}"
-    echo -e "${COLOR_YELLOW}- ${LANG[FAST_START]//remnawave_reverse/${COLOR_GREEN}remnawave_reverse${COLOR_RESET}}"
-    echo -e ""
+    print_header
+
+    menu_head "${LANG[MENU_GROUP_INSTALL]:-Install & manage}"
+    menu_item 1 "${LANG[MENU_1]}"   # Install Remnawave Components
+    menu_item 2 "${LANG[MENU_2]}"   # Reinstall panel/node
+    menu_item 3 "${LANG[MENU_3]}"   # Manage panel/node
+
+    menu_head "${LANG[MENU_GROUP_TOOLS]:-Tools}"
+    menu_item 4  "${LANG[MENU_4]}"  # Install random template
+    menu_item 5  "${LANG[MENU_5]}"  # Custom Templates legiz
+    menu_item 6  "${LANG[MENU_6]}"  # WARP Native
+    menu_item 7  "${LANG[MENU_7]}"  # Backup and Restore
+    menu_item 12 "${LANG[MENU_12]:-Node accelerator (optimize / protect / diagnose)}"
+
+    menu_head "${LANG[MENU_GROUP_SYSTEM]:-System}"
+    menu_item 8  "${LANG[MENU_8]}"  # Manage IPv6
+    menu_item 9  "${LANG[MENU_9]}"  # Manage certificates domain
+    menu_item 10 "${LANG[MENU_10]}" # Check for updates
+    menu_item 11 "${LANG[MENU_11]}" # Remove script
+
+    echo
+    menu_item 0 "${LANG[EXIT]}"
+    echo
+    printf "  %b%s%b\n" "$COLOR_DIM" "Wiki: https://wiki.egam.es/" "$COLOR_RESET"
+    printf "  %b%s%b\n" "$COLOR_DIM" "${LANG[FAST_START]//remnawave_reverse/remnawave_reverse}" "$COLOR_RESET"
+    echo
 }
 
 # Web server selection
 show_webserver_select() {
-    echo -e ""
-    echo -e "${COLOR_GREEN}${LANG[SELECT_WEBSERVER_TITLE]}${COLOR_RESET}"
-    echo -e ""
-    echo -e "${COLOR_YELLOW}1. Nginx${COLOR_RESET}"
-    echo -e "${COLOR_YELLOW}2. Caddy${COLOR_RESET}"
-    echo -e ""
-    echo -e "${COLOR_YELLOW}0. ${LANG[EXIT]}${COLOR_RESET}"
-    echo -e ""
+    menu_head "${LANG[SELECT_WEBSERVER_TITLE]}"
+    menu_item 1 "Nginx"
+    menu_item 2 "Caddy"
+    echo
+    menu_item 0 "${LANG[EXIT]}"
+    echo
     reading "${LANG[SELECT_WEBSERVER_PROMPT]}" WEBSERVER_OPTION
 }
 
 #Manage Install Remnawave Components
 show_install_menu() {
-    echo -e ""
-    echo -e "${COLOR_GREEN}${LANG[INSTALL_MENU_TITLE]}${COLOR_RESET}"
-    echo -e ""
-    echo -e "${COLOR_YELLOW}1. ${LANG[INSTALL_PANEL_NODE]}${COLOR_RESET}"
-    echo -e "${COLOR_YELLOW}2. ${LANG[INSTALL_PANEL]}${COLOR_RESET}"
-    echo -e "${COLOR_YELLOW}3. ${LANG[INSTALL_ADD_NODE]}${COLOR_RESET}"
-    echo -e "${COLOR_YELLOW}4. ${LANG[INSTALL_NODE]}${COLOR_RESET}"
-    echo -e ""
-    echo -e "${COLOR_YELLOW}0. ${LANG[EXIT]}${COLOR_RESET}"
-    echo -e ""
+    menu_head "${LANG[INSTALL_MENU_TITLE]}"
+    menu_item 1 "${LANG[INSTALL_PANEL_NODE]}"
+    menu_item 2 "${LANG[INSTALL_PANEL]}"
+    menu_item 3 "${LANG[INSTALL_ADD_NODE]}"
+    menu_item 4 "${LANG[INSTALL_NODE]}"
+    echo
+    menu_item 0 "${LANG[EXIT]}"
+    echo
 }
 
 manage_install() {
@@ -2333,6 +2373,7 @@ load_caddy_node_module() { load_module "install_node" "caddy" "${1:-false}"; }
 load_warp_module() { load_module "warp" "modules" "${1:-false}"; }
 load_ipv6_module() { load_module "ipv6" "modules" "${1:-false}"; }
 load_selfsteal_templates_module() { load_module "selfsteal_templates" "modules" "${1:-false}"; }
+load_node_accelerator_module() { load_module "node_accelerator" "modules" "${1:-false}"; }
 
 log_entry
 
@@ -2448,6 +2489,13 @@ case $OPTION in
         ;;
     11)
         remove_script
+        ;;
+    12)
+        load_node_accelerator_module
+        manage_node_accelerator
+        sleep 2
+        log_clear
+        remnawave_reverse
         ;;
     0)
         echo -e "${COLOR_YELLOW}${LANG[EXIT]}${COLOR_RESET}"
