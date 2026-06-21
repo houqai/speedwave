@@ -49,6 +49,10 @@ enable_ipv6() {
     echo -e "${COLOR_YELLOW}${LANG[ENABLE_IPV6]}${COLOR_RESET}"
     interface_name=$(ip -o link show | awk -F': ' '{print $2}' | grep -v lo | head -n 1)
 
+    # /etc/sysctl.conf is not present by default on some systems (e.g. Ubuntu 26) —
+    # create it so the sed cleanup below doesn't error.
+    [ -f /etc/sysctl.conf ] || touch /etc/sysctl.conf
+
     sed -i '/net.ipv6.conf.all.disable_ipv6/d' /etc/sysctl.conf
     sed -i '/net.ipv6.conf.default.disable_ipv6/d' /etc/sysctl.conf
     sed -i '/net.ipv6.conf.lo.disable_ipv6/d' /etc/sysctl.conf
@@ -71,6 +75,10 @@ disable_ipv6() {
 
     echo -e "${COLOR_YELLOW}${LANG[DISABLING_IPV6]}${COLOR_RESET}"
     interface_name=$(ip -o link show | awk -F': ' '{print $2}' | grep -v lo | head -n 1)
+
+    # /etc/sysctl.conf is not present by default on some systems (e.g. Ubuntu 26) —
+    # create it so the sed cleanup below doesn't error.
+    [ -f /etc/sysctl.conf ] || touch /etc/sysctl.conf
 
     sed -i '/net.ipv6.conf.all.disable_ipv6/d' /etc/sysctl.conf
     sed -i '/net.ipv6.conf.default.disable_ipv6/d' /etc/sysctl.conf
