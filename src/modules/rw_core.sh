@@ -51,6 +51,33 @@ rw_arch() {
     esac
 }
 
+# Building Xray from source needs the Go toolchain (~250 MB unpacked), the
+# sources and the build/module caches. Require a safe margin of free space on
+# the build filesystem (/var/tmp) and try to reclaim apt cache first if low.
+# RW_MIN_FREE_MB is the floor below which we refuse to start.
+RW_MIN_FREE_MB=1200
+
+rw_free_mb() {
+    # Free megabytes on the filesystem backing the given path.
+    df -Pm "$1" 2>/dev/null | awk 'NR==2{print $4}'
+}
+
+rw_precheck_space() {
+    local path="$1" free
+    free="$(rw_free_mb "$path")"
+    [ -z "$free" ] && return 0   # can't tell — don't block
+    if [ "$free" -lt "$RW_MIN_FREE_MB" ]; then
+        msg_warn "$(printf "${LANG[RW_LOWDISK]:-Low disk space: %s MB free, ~%s MB needed. Cleaning apt cache...}" "$free" "$RW_MIN_FREE_MB")"
+        apt-get clean >/dev/null 2>&1 || true
+        free="$(rw_free_mb "$path")"
+    fi
+    if [ -n "$free" ] && [ "$free" -lt "$RW_MIN_FREE_MB" ]; then
+        msg_err "$(printf "${LANG[RW_LOWDISK_ABORT]:-Not enough free disk space to build (%s MB free, ~%s MB needed). Free up space and retry.}" "$free" "$RW_MIN_FREE_MB")"
+        return 1
+    fi
+    return 0
+}
+
 # Download the Go toolchain version required by Xray into $1; echoes nothing, sets
 # global RW_GO_BIN. Caller removes the temp dir afterwards.
 rw_fetch_go() {
@@ -142,6 +169,7 @@ rw_update_to() {
 
     # Build under a disk-backed temp dir (not /tmp which may be tmpfs/RAM).
     tmp="$(mktemp -d -p /var/tmp rw-core.XXXXXX)" || { msg_err "mktemp failed"; return 1; }
+    if ! rw_precheck_space "$tmp"; then rw_cleanup "$tmp"; return 1; fi
     if rw_build "$tmp" "$tag" "$arch" && rw_install_into_node "$dir" "$tmp" "$tag"; then
         rw_cleanup "$tmp"
         echo

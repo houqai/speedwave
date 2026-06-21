@@ -210,6 +210,9 @@ install_xanmod() {
     mkdir -p "$STATE_DIR"; echo "$pkg" > "$STATE_DIR/xanmod.pkg"
     update-grub >/dev/null 2>&1 || true
     na_grub_boot_xanmod
+    # Гигиена диска: .deb пакеты ядра/заголовков уже распакованы — кэш apt не нужен
+    # и на VPS с диском 4 ГБ может занимать сотни МБ. Чистим, чтобы не забивать SSD.
+    apt-get clean >/dev/null 2>&1 || true
     ok "XanMod установлен: $pkg (активируется ПОСЛЕ перезагрузки)"
     REBOOT_NEEDED=1
     return 0
