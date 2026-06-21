@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_VERSION="3.0.8"
+SCRIPT_VERSION="3.0.9"
 UPDATE_AVAILABLE=false
 DIR_REMNAWAVE="/usr/local/remnawave_reverse/"
 LANG_FILE="${DIR_REMNAWAVE}selected_language"
@@ -325,7 +325,7 @@ update_remnawave_reverse() {
     done
 
     # Modules (common)
-    local common_modules=("add_node" "manage_panel" "warp" "ipv6" "selfsteal_templates")
+    local common_modules=("add_node" "manage_panel" "warp" "ipv6" "selfsteal_templates" "node_accelerator" "rw_core")
     for module in "${common_modules[@]}"; do
         local module_file="${DIR_REMNAWAVE}modules/${module}.sh"
         if [ -f "$module_file" ]; then
