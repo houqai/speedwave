@@ -177,7 +177,7 @@ EOL
 
     spinner $! "${LANG[WAITING]}"
 
-    randomhtml
+    install_blocked_template
 
     printf "${COLOR_YELLOW}${LANG[NODE_CHECK]}${COLOR_RESET}\n" "$SELFSTEAL_DOMAIN"
     local max_attempts=5
@@ -200,4 +200,95 @@ EOL
         fi
         ((attempt++))
     done
+}
+
+# Node-only install: no selfsteal domain, no masking website, no TLS site/cert.
+# Just the remnanode container connected to the panel. Useful when Reality uses an
+# external dest and a local selfsteal site is not needed.
+install_node_no_domain() {
+    mkdir -p /opt/remnanode && cd /opt/remnanode
+
+    while true; do
+        reading "${LANG[PANEL_IP_PROMPT]}" PANEL_IP
+        if echo "$PANEL_IP" | grep -E '^([0-9]{1,3}\.){3}[0-9]{1,3}$' >/dev/null && \
+           [[ $(echo "$PANEL_IP" | tr '.' '\n' | wc -l) -eq 4 ]] && \
+           [[ ! $(echo "$PANEL_IP" | tr '.' '\n' | grep -vE '^[0-9]{1,3}$') ]] && \
+           [[ ! $(echo "$PANEL_IP" | tr '.' '\n' | grep -E '^(25[6-9]|2[6-9][0-9]|[3-9][0-9]{2})$') ]]; then
+            break
+        else
+            echo -e "${COLOR_RED}${LANG[IP_ERROR]}${COLOR_RESET}"
+        fi
+    done
+
+    echo -n "$(question "${LANG[CERT_PROMPT]}")"
+    CERTIFICATE=""
+    while IFS= read -r line; do
+        if [ -z "$line" ]; then
+            if [ -n "$CERTIFICATE" ]; then
+                break
+            fi
+        else
+            CERTIFICATE="$CERTIFICATE$line\n"
+        fi
+    done
+
+    echo -e "${COLOR_YELLOW}${LANG[CERT_CONFIRM]}${COLOR_RESET}"
+    read confirm
+    echo
+
+    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+        echo -e "${COLOR_RED}${LANG[ABORT_MESSAGE]}${COLOR_RESET}"
+        exit 1
+    fi
+
+cat > /opt/remnanode/docker-compose.yml <<EOL
+x-common: &common
+  ulimits:
+    nofile:
+      soft: 1048576
+      hard: 1048576
+  restart: always
+
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: 100m
+      max-file: 5
+
+services:
+  remnanode:
+    image: remnawave/node:latest
+    container_name: remnanode
+    hostname: remnanode
+    <<: [*common, *logging]
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - NODE_PORT=2222
+      - SECRET_KEY=$(echo -e "$CERTIFICATE")
+    volumes:
+      - /dev/shm:/dev/shm:rw
+EOL
+}
+
+installation_node_no_domain() {
+    echo -e "${COLOR_YELLOW}${LANG[INSTALLING_NODE]}${COLOR_RESET}"
+    sleep 1
+
+    install_node_no_domain
+
+    ufw allow from $PANEL_IP to any port 2222 > /dev/null 2>&1
+    ufw reload > /dev/null 2>&1
+
+    echo -e "${COLOR_YELLOW}${LANG[STARTING_NODE]}${COLOR_RESET}"
+    sleep 3
+    cd /opt/remnanode
+    docker compose up -d > /dev/null 2>&1 &
+
+    spinner $! "${LANG[WAITING]}"
+
+    echo -e "${COLOR_GREEN}${LANG[NODE_LAUNCHED]}${COLOR_RESET}"
+    echo -e "${COLOR_YELLOW}${LANG[NODE_NO_DOMAIN_DONE]:-Node installed without a selfsteal site (node only).}${COLOR_RESET}"
 }

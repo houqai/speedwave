@@ -331,19 +331,6 @@ update_remnawave_reverse() {
         fi
     done
 
-    # Caddy modules
-    local caddy_modules=("install_panel_node" "install_panel" "install_node")
-    for module in "${caddy_modules[@]}"; do
-        local module_file="${DIR_REMNAWAVE}caddy/${module}.sh"
-        if [ -f "$module_file" ]; then
-            if load_module "$module" "caddy" "true"; then
-                printf "${COLOR_GREEN}${LANG[LANG_FILE_UPDATED]}${COLOR_RESET}\n" "caddy/${module}.sh"
-            else
-                printf "${COLOR_RED}${LANG[LANG_FILE_UPDATE_FAILED]}${COLOR_RESET}\n" "caddy/${module}.sh"
-            fi
-        fi
-    done
-
     local api_file="${DIR_REMNAWAVE}api/remnawave_api.sh"
     if [ -f "$api_file" ]; then
         if load_module "remnawave_api" "api" "true"; then
@@ -629,15 +616,14 @@ show_menu() {
     echo
 }
 
-# Web server selection
-show_webserver_select() {
-    menu_head "${LANG[SELECT_WEBSERVER_TITLE]}"
-    menu_item 1 "Nginx"
-    menu_item 2 "Caddy"
+# Node install type selection (with or without a selfsteal site/domain)
+show_node_install_options() {
+    menu_head "${LANG[NODE_INSTALL_TYPE_TITLE]:-Node install type}"
+    menu_item 1 "${LANG[NODE_WITH_SELFSTEAL]:-With selfsteal site (domain + IP-blocked page)}"
+    menu_item 2 "${LANG[NODE_WITHOUT_SELFSTEAL]:-Without selfsteal domain (node only)}"
     echo
     menu_item 0 "${LANG[EXIT]}"
     echo
-    reading "${LANG[SELECT_WEBSERVER_PROMPT]}" WEBSERVER_OPTION
 }
 
 #Manage Install Remnawave Components
@@ -670,90 +656,30 @@ manage_install() {
                 exit 0
             fi
             
-            show_webserver_select
-            case $WEBSERVER_OPTION in
-                1)
-                    load_install_panel_node_module
-                    load_api_module
-                    if [ ! -f "${DIR_REMNAWAVE}install_packages" ] || ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1 || ! command -v certbot >/dev/null 2>&1; then
-                        install_packages || {
-                            echo -e "${COLOR_RED}${LANG[ERROR_INSTALL_DOCKER]}${COLOR_RESET}"
-                            log_clear
-                            exit 1
-                        }
-                    fi
-                    installation
-                    ;;
-                2)
-                    load_caddy_module
-                    load_api_module
-                    if [ ! -f "${DIR_REMNAWAVE}install_packages" ] || ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
-                        install_packages || {
-                            echo -e "${COLOR_RED}${LANG[ERROR_INSTALL_DOCKER]}${COLOR_RESET}"
-                            log_clear
-                            exit 1
-                        }
-                    fi
-                    installation_panel_node_caddy
-                    ;;
-                0)
-                    echo -e "${COLOR_YELLOW}${LANG[EXIT]}${COLOR_RESET}"
+            load_install_panel_node_module
+            load_api_module
+            if [ ! -f "${DIR_REMNAWAVE}install_packages" ] || ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1 || ! command -v certbot >/dev/null 2>&1; then
+                install_packages || {
+                    echo -e "${COLOR_RED}${LANG[ERROR_INSTALL_DOCKER]}${COLOR_RESET}"
                     log_clear
-                    remnawave_reverse
-                    return
-                    ;;
-                *)
-                    echo -e "${COLOR_YELLOW}${LANG[INSTALL_INVALID_CHOICE]}${COLOR_RESET}"
-                    sleep 2
-                    log_clear
-                    manage_install
-                    return
-                    ;;
-            esac
+                    exit 1
+                }
+            fi
+            installation
             sleep 2
             log_clear
             ;;
         2)
-            show_webserver_select
-            case $WEBSERVER_OPTION in
-                1)
-                    load_install_panel_module
-                    load_api_module
-                    if [ ! -f "${DIR_REMNAWAVE}install_packages" ] || ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1 || ! command -v certbot >/dev/null 2>&1; then
-                        install_packages || {
-                            echo -e "${COLOR_RED}${LANG[ERROR_INSTALL_DOCKER]}${COLOR_RESET}"
-                            log_clear
-                            exit 1
-                        }
-                    fi
-                    installation_panel
-                    ;;
-                2)
-                    load_caddy_panel_module
-                    load_api_module
-                    if [ ! -f "${DIR_REMNAWAVE}install_packages" ] || ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
-                        install_packages || {
-                            echo -e "${COLOR_RED}${LANG[ERROR_INSTALL_DOCKER]}${COLOR_RESET}"
-                            log_clear
-                            exit 1
-                        }
-                    fi
-                    installation_panel_caddy
-                    ;;
-                0)
-                    echo -e "${COLOR_YELLOW}${LANG[EXIT]}${COLOR_RESET}"
+            load_install_panel_module
+            load_api_module
+            if [ ! -f "${DIR_REMNAWAVE}install_packages" ] || ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1 || ! command -v certbot >/dev/null 2>&1; then
+                install_packages || {
+                    echo -e "${COLOR_RED}${LANG[ERROR_INSTALL_DOCKER]}${COLOR_RESET}"
                     log_clear
-                    remnawave_reverse
-                    return
-                    ;;
-                *)
-                    echo -e "${COLOR_YELLOW}${LANG[INSTALL_INVALID_CHOICE]}${COLOR_RESET}"
-                    sleep 2
-                    log_clear
-                    manage_install
-                    return
-                    ;;
-            esac
+                    exit 1
+                }
+            fi
+            installation_panel
             sleep 2
             log_clear
             ;;
@@ -764,8 +690,9 @@ manage_install() {
             log_clear
             ;;
         4)
-            show_webserver_select
-            case $WEBSERVER_OPTION in
+            show_node_install_options
+            reading "${LANG[INSTALL_PROMPT]}" NODE_INSTALL_OPTION
+            case $NODE_INSTALL_OPTION in
                 1)
                     load_install_node_module
                     if [ ! -f "${DIR_REMNAWAVE}install_packages" ] || ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1 || ! command -v certbot >/dev/null 2>&1; then
@@ -778,7 +705,7 @@ manage_install() {
                     installation_node
                     ;;
                 2)
-                    load_caddy_node_module
+                    load_install_node_module
                     if [ ! -f "${DIR_REMNAWAVE}install_packages" ] || ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
                         install_packages || {
                             echo -e "${COLOR_RED}${LANG[ERROR_INSTALL_DOCKER]}${COLOR_RESET}"
@@ -786,7 +713,7 @@ manage_install() {
                             exit 1
                         }
                     fi
-                    installation_node_caddy
+                    installation_node_no_domain
                     ;;
                 0)
                     echo -e "${COLOR_YELLOW}${LANG[EXIT]}${COLOR_RESET}"
@@ -843,30 +770,10 @@ choose_reinstall_type() {
                     if [ ! -f ${DIR_REMNAWAVE}install_packages ]; then
                         install_packages
                     fi
-                    show_webserver_select
-                    case $WEBSERVER_OPTION in
-                        1)
-                            case $REINSTALL_OPTION in
-                                1) load_install_panel_node_module; load_api_module; installation ;;
-                                2) load_install_panel_module; load_api_module; installation_panel ;;
-                                3) load_install_node_module; load_api_module; installation_node ;;
-                            esac
-                            ;;
-                        2)
-                            case $REINSTALL_OPTION in
-                                1) load_caddy_module; load_api_module; installation_panel_node_caddy ;;
-                                2) load_caddy_panel_module; load_api_module; installation_panel_caddy ;;
-                                3) load_caddy_node_module; installation_node_caddy ;;
-                            esac
-                            ;;
-                        0)
-                            echo -e "${COLOR_YELLOW}${LANG[EXIT]}${COLOR_RESET}"
-                            exit 0
-                            ;;
-                        *)
-                            echo -e "${COLOR_YELLOW}${LANG[INSTALL_INVALID_CHOICE]}${COLOR_RESET}"
-                            exit 1
-                            ;;
+                    case $REINSTALL_OPTION in
+                        1) load_install_panel_node_module; load_api_module; installation ;;
+                        2) load_install_panel_module; load_api_module; installation_panel ;;
+                        3) load_install_node_module; load_api_module; installation_node ;;
                     esac
                     log_clear
                 else
@@ -2346,9 +2253,6 @@ load_install_node_module() { load_module "install_node" "nginx" "${1:-false}"; }
 load_add_node_module() { load_module "add_node" "modules" "${1:-false}"; }
 load_manage_panel_module() { load_module "manage_panel" "modules" "${1:-false}"; }
 load_api_module() { load_module "remnawave_api" "api" "${1:-false}"; }
-load_caddy_module() { load_module "install_panel_node" "caddy" "${1:-false}"; }
-load_caddy_panel_module() { load_module "install_panel" "caddy" "${1:-false}"; }
-load_caddy_node_module() { load_module "install_node" "caddy" "${1:-false}"; }
 load_warp_module() { load_module "warp" "modules" "${1:-false}"; }
 load_ipv6_module() { load_module "ipv6" "modules" "${1:-false}"; }
 load_selfsteal_templates_module() { load_module "selfsteal_templates" "modules" "${1:-false}"; }
@@ -2392,36 +2296,10 @@ case $OPTION in
             echo -e "${COLOR_YELLOW}${LANG[NO_PANEL_NODE_INSTALLED]}${COLOR_RESET}"
             exit 1
         else
-            show_template_source_options
-            reading "${LANG[CHOOSE_TEMPLATE_OPTION]}" TEMPLATE_OPTION
-            case $TEMPLATE_OPTION in
-                1)
-                    randomhtml "simple"
-                    sleep 2
-                    log_clear
-                    remnawave_reverse
-                    ;;
-                2)
-                    randomhtml "sni"
-                    sleep 2
-                    log_clear
-                    remnawave_reverse
-                    ;;
-                3)
-                    randomhtml "nothing"
-                    sleep 2
-                    log_clear
-                    remnawave_reverse
-                    ;;
-                0)
-                    echo -e "${COLOR_YELLOW}${LANG[EXIT]}${COLOR_RESET}"
-                    remnawave_reverse
-                    ;;
-                *)
-                    echo -e "${COLOR_YELLOW}${LANG[INVALID_TEMPLATE_CHOICE]}${COLOR_RESET}"
-                    exit 1
-                    ;;
-            esac
+            install_blocked_template
+            sleep 2
+            log_clear
+            remnawave_reverse
         fi
         ;;
     5)

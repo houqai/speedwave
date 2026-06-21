@@ -606,5 +606,5 @@ EOL
     echo -e "${COLOR_GREEN}remnawave_reverse${COLOR_RESET}"
     echo -e "${COLOR_YELLOW}=================================================${COLOR_RESET}"
 
-    randomhtml
+    install_blocked_template
 }
