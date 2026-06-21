@@ -35,9 +35,17 @@ rw_latest_ref() {
     git ls-remote "$RW_REPO" "refs/heads/${RW_BRANCH}" 2>/dev/null | awk 'NR==1{print substr($1,1,12)}'
 }
 
+# .rw-core-version holds the built commit SHA on line 1 and its commit date on
+# line 2. Comparisons use the SHA only; the date is shown to the user as a
+# human-readable freshness indicator.
 rw_installed_ver() {
     local dir="$1"
-    [ -f "$dir/.rw-core-version" ] && cat "$dir/.rw-core-version" || echo ""
+    [ -f "$dir/.rw-core-version" ] && sed -n '1p' "$dir/.rw-core-version" || echo ""
+}
+
+rw_installed_date() {
+    local dir="$1"
+    [ -f "$dir/.rw-core-version" ] && sed -n '2p' "$dir/.rw-core-version" || echo ""
 }
 
 rw_arch() {
@@ -96,6 +104,7 @@ rw_fetch_go() {
 # Everything (sources, caches, toolchain) lives under $tmp so a single rm -rf
 # cleans the disk.
 RW_BUILT_REF=""
+RW_BUILT_DATE=""
 rw_build() {
     local tmp="$1" arch="$2"
     local log="$tmp/build.log"
@@ -106,8 +115,9 @@ rw_build() {
     git clone --depth 1 --branch "$RW_BRANCH" "$RW_REPO" "$tmp/src" >"$log" 2>&1 || {
         msg_err "${LANG[RW_CLONE_FAIL]:-git clone failed}"; tail -n 5 "$log"; return 1; }
 
-    # The exact commit we are about to build (full source state).
+    # The exact commit we are about to build (full source state) + its date.
     RW_BUILT_REF="$(git -C "$tmp/src" rev-parse --short=12 HEAD 2>/dev/null)"
+    RW_BUILT_DATE="$(git -C "$tmp/src" log -1 --format=%cd --date=short HEAD 2>/dev/null)"
 
     export GOROOT="$tmp/go" GOPATH="$tmp/gopath" GOCACHE="$tmp/gocache" GOMODCACHE="$tmp/gomod"
     export PATH="$tmp/go/bin:$PATH" CGO_ENABLED=0
@@ -141,7 +151,8 @@ services:
       - $dir/rw-core:/usr/local/bin/xray:ro
 EOF
 
-    echo "$tag" > "$dir/.rw-core-version"
+    # Line 1: commit SHA (used for comparisons). Line 2: commit date (display).
+    printf '%s\n%s\n' "${tag:-$RW_BUILT_REF}" "$RW_BUILT_DATE" > "$dir/.rw-core-version"
 
     msg_info "${LANG[RW_RESTARTING]:-Recreating node container...}"
     ( cd "$dir" && docker compose up -d --force-recreate remnanode ) >/dev/null 2>&1 &
@@ -175,7 +186,7 @@ rw_update_to() {
     if rw_build "$tmp" "$arch" && rw_install_into_node "$dir" "$tmp" "$RW_BUILT_REF"; then
         rw_cleanup "$tmp"
         echo
-        msg_ok "$(printf "${LANG[RW_DONE]:-rw-core rebuilt from source (%s). Build files cleaned up.}" "$RW_BUILT_REF")"
+        msg_ok "$(printf "${LANG[RW_DONE]:-rw-core rebuilt from source (commit %s, %s). Build files cleaned up.}" "$RW_BUILT_REF" "${RW_BUILT_DATE:-?}")"
         return 0
     fi
     rw_cleanup "$tmp"
@@ -184,14 +195,17 @@ rw_update_to() {
 }
 
 rw_check_update() {
-    local dir cur latest
+    local dir cur curdate latest
     dir="$(rw_node_dir)" || { msg_err "${LANG[RW_NO_NODE]:-remnanode is not installed on this server.}"; return 1; }
     cur="$(rw_installed_ver "$dir")"
+    curdate="$(rw_installed_date "$dir")"
     latest="$(rw_latest_ref)"
     [ -z "$latest" ] && { msg_err "${LANG[RW_NO_TAG]:-Could not determine the latest version.}"; return 1; }
 
+    local curshow="${cur:-${LANG[RW_STOCK]:-stock (image bundled)}}"
+    [ -n "$cur" ] && [ -n "$curdate" ] && curshow="$cur ($curdate)"
     echo
-    msg_info "$(printf "${LANG[RW_CUR]:-Installed: %s}" "${cur:-${LANG[RW_STOCK]:-stock (image bundled)}}")"
+    msg_info "$(printf "${LANG[RW_CUR]:-Installed: %s}" "$curshow")"
     msg_info "$(printf "${LANG[RW_LATEST]:-Latest source commit: %s}" "$latest")"
 
     if [ -n "$cur" ] && [ "$cur" = "$latest" ]; then

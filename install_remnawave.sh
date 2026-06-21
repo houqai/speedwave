@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_VERSION="3.2.0"
+SCRIPT_VERSION="3.2.1"
 UPDATE_AVAILABLE=false
 DIR_REMNAWAVE="/usr/local/speedwave/"
 LANG_FILE="${DIR_REMNAWAVE}selected_language"
