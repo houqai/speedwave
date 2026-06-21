@@ -12,7 +12,13 @@ LANG_BASE_URL="https://raw.githubusercontent.com/houqai/remnawave-reverse-proxy/
 # output and log files stay clean. COLOR_GREEN is remapped to coral on purpose:
 # it is the script-wide "primary accent" token (titles/prompts), so every existing
 # call site repaints to the Claude look without being touched individually.
-if [ -t 1 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-}" != "dumb" ]; then
+#
+# We key on stdin (-t 0), not stdout: log_entry redirects stdout into a `tee` pipe
+# (exec > >(tee ...)), so on re-entry to the menu via the `remnawave_reverse`
+# command stdout is no longer a tty and `-t 1` alone would wrongly drop all colors.
+# stdin stays attached to the terminal in interactive use, so it is the reliable
+# signal. Keep -t 1 too for the rare stdout-tty/stdin-piped case.
+if { [ -t 0 ] || [ -t 1 ]; } && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-}" != "dumb" ]; then
     COLOR_RESET="\033[0m"
     COLOR_CORAL="\033[38;2;217;119;87m"      # Claude signature coral #D97757
     COLOR_CORAL_B="\033[1;38;2;217;119;87m"  # bold coral
@@ -596,11 +602,10 @@ show_menu() {
     menu_item 3 "${LANG[MENU_3]}"   # Manage panel/node
 
     menu_head "${LANG[MENU_GROUP_TOOLS]:-Tools}"
-    menu_item 4  "${LANG[MENU_4]}"  # Install random template
-    menu_item 5  "${LANG[MENU_5]}"  # Custom Templates legiz
-    menu_item 6  "${LANG[MENU_6]}"  # WARP Native
-    menu_item 7  "${LANG[MENU_7]}"  # Backup and Restore
-    menu_item 12 "${LANG[MENU_12]:-Node accelerator (optimize / protect / diagnose)}"
+    menu_item 4 "${LANG[MENU_4]}"   # Apply IP-blocked template
+    menu_item 5 "${LANG[MENU_6]}"   # WARP Native
+    menu_item 6 "${LANG[MENU_7]}"   # Backup and Restore
+    menu_item 7 "${LANG[MENU_12]:-Node accelerator (optimize / protect / diagnose)}"
 
     menu_head "${LANG[MENU_GROUP_SYSTEM]:-System}"
     menu_item 8  "${LANG[MENU_8]}"  # Manage IPv6
@@ -2303,19 +2308,13 @@ case $OPTION in
         fi
         ;;
     5)
-        manage_custom_legiz
-        sleep 2
-        log_clear
-        remnawave_reverse
-        ;;
-    6)
         load_warp_module
         manage_warp_native
         sleep 2
         log_clear
         remnawave_reverse
         ;;
-    7)
+    6)
         if [ -f ~/backup-restore.sh ]; then
             rw-backup
         else
@@ -2347,7 +2346,7 @@ case $OPTION in
     11)
         remove_script
         ;;
-    12)
+    7)
         load_node_accelerator_module
         manage_node_accelerator
         sleep 2

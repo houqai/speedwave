@@ -60,8 +60,8 @@ LANG[MENU_12]="Node accelerator (optimize / protect / diagnose)"
 LANG[MENU_GROUP_INSTALL]="Install & manage"
 LANG[MENU_GROUP_TOOLS]="Tools"
 LANG[MENU_GROUP_SYSTEM]="System"
-LANG[PROMPT_ACTION]="Select action (0-12):"
-LANG[INVALID_CHOICE]="Invalid choice. Please select 0-12"
+LANG[PROMPT_ACTION]="Select action (0-11):"
+LANG[INVALID_CHOICE]="Invalid choice. Please select 0-11"
 
 # --- Node accelerator module ---
 LANG[NA_TITLE]="Node accelerator"

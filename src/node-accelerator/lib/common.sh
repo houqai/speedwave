@@ -7,7 +7,7 @@
 # Palette adapted to remnawave-reverse-proxy's Claude-style coral theme. Variable
 # and function names are kept identical to upstream so the optimize/protect/diagnose
 # modules repaint without any other change. Auto-disabled on non-tty / NO_COLOR.
-if [ -t 1 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-}" != "dumb" ]; then
+if { [ -t 0 ] || [ -t 1 ]; } && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-}" != "dumb" ]; then
     NC='\033[0m'
     CORAL='\033[38;2;217;119;87m'    # Claude signature coral #D97757
     RED='\033[38;2;224;104;90m'      # soft red (errors)
