@@ -15,7 +15,7 @@
 # question, spinner, print_header.
 
 RW_REPO="https://github.com/XTLS/Xray-core"
-RW_API_LATEST="https://api.github.com/repos/XTLS/Xray-core/releases/latest"
+RW_BRANCH="main"
 
 # Locate the directory whose docker-compose runs the remnanode container.
 rw_node_dir() {
@@ -28,14 +28,11 @@ rw_node_dir() {
     return 1
 }
 
-rw_latest_tag() {
-    local t
-    t="$(curl -fsSL "$RW_API_LATEST" 2>/dev/null | grep -m1 '"tag_name"' | sed -E 's/.*"tag_name"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')"
-    if [ -z "$t" ]; then
-        # Fallback: newest semver tag via git (no API rate limit)
-        t="$(git ls-remote --tags --refs "$RW_REPO" 2>/dev/null | sed -E 's#.*refs/tags/##' | grep -E '^v[0-9]' | sort -V | tail -1)"
-    fi
-    echo "$t"
+# Latest commit on the default branch — i.e. the newest source changes, not a
+# packaged release. Returns a short commit SHA. We build this exact commit so the
+# node runs bleeding-edge Xray-core straight from the repository.
+rw_latest_ref() {
+    git ls-remote "$RW_REPO" "refs/heads/${RW_BRANCH}" 2>/dev/null | awk 'NR==1{print substr($1,1,12)}'
 }
 
 rw_installed_ver() {
@@ -94,17 +91,23 @@ rw_fetch_go() {
     [ -x "$RW_GO_BIN" ]
 }
 
-# Build Xray-core $tag into $tmp/xray. Everything (sources, caches, toolchain)
-# lives under $tmp so a single rm -rf cleans the disk.
+# Build the latest Xray-core source into $tmp/xray. Clones the default branch HEAD
+# (newest changes) and records the exact built commit in the global RW_BUILT_REF.
+# Everything (sources, caches, toolchain) lives under $tmp so a single rm -rf
+# cleans the disk.
+RW_BUILT_REF=""
 rw_build() {
-    local tmp="$1" tag="$2" arch="$3"
+    local tmp="$1" arch="$2"
     local log="$tmp/build.log"
 
     rw_fetch_go "$tmp" "$arch" || return 1
 
-    msg_info "$(printf "${LANG[RW_CLONING]:-Cloning Xray-core %s...}" "$tag")"
-    git clone --depth 1 --branch "$tag" "$RW_REPO" "$tmp/src" >"$log" 2>&1 || {
+    msg_info "${LANG[RW_CLONING]:-Cloning latest Xray-core source...}"
+    git clone --depth 1 --branch "$RW_BRANCH" "$RW_REPO" "$tmp/src" >"$log" 2>&1 || {
         msg_err "${LANG[RW_CLONE_FAIL]:-git clone failed}"; tail -n 5 "$log"; return 1; }
+
+    # The exact commit we are about to build (full source state).
+    RW_BUILT_REF="$(git -C "$tmp/src" rev-parse --short=12 HEAD 2>/dev/null)"
 
     export GOROOT="$tmp/go" GOPATH="$tmp/gopath" GOCACHE="$tmp/gocache" GOMODCACHE="$tmp/gomod"
     export PATH="$tmp/go/bin:$PATH" CGO_ENABLED=0
@@ -152,28 +155,27 @@ rw_cleanup() {
     rm -rf "$tmp"
 }
 
-# Full update flow: build $tag and install it. $tag empty => latest.
+# Full update flow: build the latest source and install it.
 rw_update_to() {
-    local dir tag arch tmp
+    local dir ref arch tmp
     dir="$(rw_node_dir)" || { msg_err "${LANG[RW_NO_NODE]:-remnanode is not installed on this server.}"; return 1; }
     arch="$(rw_arch)" || true
     [ -z "$arch" ] && { msg_err "$(printf "${LANG[RW_ARCH]:-Unsupported architecture: %s}" "$(uname -m)")"; return 1; }
     command -v docker >/dev/null 2>&1 || { msg_err "${LANG[RW_NO_DOCKER]:-Docker is not installed.}"; return 1; }
     command -v git >/dev/null 2>&1 || { msg_err "git is required"; return 1; }
 
-    tag="${1:-$(rw_latest_tag)}"
-    [ -z "$tag" ] && { msg_err "${LANG[RW_NO_TAG]:-Could not determine the latest version.}"; return 1; }
+    ref="$(rw_latest_ref)"   # informational; actual built commit captured during build
 
     echo
-    msg_info "$(printf "${LANG[RW_TARGET]:-Target version: %s   node dir: %s}" "$tag" "$dir")"
+    msg_info "$(printf "${LANG[RW_TARGET]:-Target: latest source %s   node dir: %s}" "${ref:-HEAD}" "$dir")"
 
     # Build under a disk-backed temp dir (not /tmp which may be tmpfs/RAM).
     tmp="$(mktemp -d -p /var/tmp rw-core.XXXXXX)" || { msg_err "mktemp failed"; return 1; }
     if ! rw_precheck_space "$tmp"; then rw_cleanup "$tmp"; return 1; fi
-    if rw_build "$tmp" "$tag" "$arch" && rw_install_into_node "$dir" "$tmp" "$tag"; then
+    if rw_build "$tmp" "$arch" && rw_install_into_node "$dir" "$tmp" "$RW_BUILT_REF"; then
         rw_cleanup "$tmp"
         echo
-        msg_ok "$(printf "${LANG[RW_DONE]:-rw-core updated to %s. Build files cleaned up.}" "$tag")"
+        msg_ok "$(printf "${LANG[RW_DONE]:-rw-core rebuilt from source (%s). Build files cleaned up.}" "$RW_BUILT_REF")"
         return 0
     fi
     rw_cleanup "$tmp"
@@ -185,21 +187,21 @@ rw_check_update() {
     local dir cur latest
     dir="$(rw_node_dir)" || { msg_err "${LANG[RW_NO_NODE]:-remnanode is not installed on this server.}"; return 1; }
     cur="$(rw_installed_ver "$dir")"
-    latest="$(rw_latest_tag)"
+    latest="$(rw_latest_ref)"
     [ -z "$latest" ] && { msg_err "${LANG[RW_NO_TAG]:-Could not determine the latest version.}"; return 1; }
 
     echo
     msg_info "$(printf "${LANG[RW_CUR]:-Installed: %s}" "${cur:-${LANG[RW_STOCK]:-stock (image bundled)}}")"
-    msg_info "$(printf "${LANG[RW_LATEST]:-Latest upstream: %s}" "$latest")"
+    msg_info "$(printf "${LANG[RW_LATEST]:-Latest source commit: %s}" "$latest")"
 
     if [ -n "$cur" ] && [ "$cur" = "$latest" ]; then
-        echo; msg_ok "${LANG[RW_UPTODATE]:-Already on the latest version.}"
+        echo; msg_ok "${LANG[RW_UPTODATE]:-Already on the latest source commit.}"
         return 0
     fi
     echo
     local ans
-    reading "${LANG[RW_REBUILD_CONFIRM]:-A newer version is available. Rebuild now? (y/n):}" ans
-    [[ "$ans" == "y" || "$ans" == "Y" ]] && rw_update_to "$latest"
+    reading "${LANG[RW_REBUILD_CONFIRM]:-Newer source is available. Rebuild now? (y/n):}" ans
+    [[ "$ans" == "y" || "$ans" == "Y" ]] && rw_update_to
 }
 
 rw_revert() {

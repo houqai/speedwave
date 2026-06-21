@@ -1,9 +1,10 @@
 #!/bin/bash
 
-SCRIPT_VERSION="3.1.0"
+SCRIPT_VERSION="3.1.1"
 UPDATE_AVAILABLE=false
 DIR_REMNAWAVE="/usr/local/remnawave_reverse/"
 LANG_FILE="${DIR_REMNAWAVE}selected_language"
+CACHE_VERSION_FILE="${DIR_REMNAWAVE}.cache_version"
 SCRIPT_URL="https://raw.githubusercontent.com/houqai/remnawave-reverse-proxy/refs/heads/main/install_remnawave.sh"
 LANG_BASE_URL="https://raw.githubusercontent.com/houqai/remnawave-reverse-proxy/refs/heads/main/src/lang"
 
@@ -154,6 +155,24 @@ validate_downloaded_file() {
     fi
     
     return 0
+}
+
+# Drop cached lang/modules when the running script version differs from the one
+# that produced the cache. Without this, an old cached lang/module file lingers
+# and new strings (e.g. menu items) fall back to English — translations then look
+# "unstable" (present on fresh installs, missing on upgraded hosts). Runs before
+# load_language so this very run picks up fresh files.
+invalidate_stale_cache() {
+    [ -d "$DIR_REMNAWAVE" ] || return 0
+    local cached=""
+    [ -f "$CACHE_VERSION_FILE" ] && cached="$(cat "$CACHE_VERSION_FILE" 2>/dev/null)"
+    if [ "$cached" != "$SCRIPT_VERSION" ]; then
+        rm -f "${DIR_REMNAWAVE}lang/"*.sh \
+              "${DIR_REMNAWAVE}modules/"*.sh \
+              "${DIR_REMNAWAVE}nginx/"*.sh \
+              "${DIR_REMNAWAVE}api/"*.sh 2>/dev/null
+        echo "$SCRIPT_VERSION" > "$CACHE_VERSION_FILE" 2>/dev/null || true
+    fi
 }
 
 load_language() {
@@ -1339,13 +1358,27 @@ install_packages() {
     if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
         echo -e "${COLOR_YELLOW}Installing Docker via get.docker.com...${COLOR_RESET}"
 
+        # Docker + images need a few GB. A disk-full failure from apt/dpkg is
+        # cryptic ("disk full error" buried in apport noise), so warn up front.
+        local _root_free_mb
+        _root_free_mb="$(df -Pm / 2>/dev/null | awk 'NR==2{print $4}')"
+        if [ -n "$_root_free_mb" ] && [ "$_root_free_mb" -lt 2500 ]; then
+            echo -e "${COLOR_YELLOW}$(printf "${LANG[WARN_LOW_DISK_DOCKER]:-Warning: only %s MB free on / — Docker needs ~2.5 GB. Install may fail; free up space or grow the disk.}" "$_root_free_mb")${COLOR_RESET}" >&2
+        fi
+
         if ! curl -fsSL https://get.docker.com -o /tmp/get-docker.sh; then
             echo -e "${COLOR_RED}${LANG[ERROR_DOWNLOAD_DOCKER_KEY]}${COLOR_RESET}" >&2
             return 1
         fi
 
         if ! sh /tmp/get-docker.sh; then
-            echo -e "${COLOR_RED}${LANG[ERROR_INSTALL_DOCKER]}${COLOR_RESET}" >&2
+            # Distinguish a disk-full failure from a generic one for a clear message.
+            _root_free_mb="$(df -Pm / 2>/dev/null | awk 'NR==2{print $4}')"
+            if [ -n "$_root_free_mb" ] && [ "$_root_free_mb" -lt 500 ]; then
+                echo -e "${COLOR_RED}$(printf "${LANG[ERROR_INSTALL_DOCKER_DISK]:-Docker install failed: no free disk space (%s MB left on /). Grow the disk or free space, then re-run.}" "$_root_free_mb")${COLOR_RESET}" >&2
+            else
+                echo -e "${COLOR_RED}${LANG[ERROR_INSTALL_DOCKER]}${COLOR_RESET}" >&2
+            fi
             return 1
         fi
     fi
@@ -2266,6 +2299,7 @@ load_node_accelerator_module() { load_module "node_accelerator" "modules" "${1:-
 load_rw_core_module() { load_module "rw_core" "modules" "${1:-false}"; }
 
 log_entry
+invalidate_stale_cache
 
 if ! load_language; then
     show_language

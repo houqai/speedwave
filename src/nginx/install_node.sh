@@ -289,6 +289,14 @@ installation_node_no_domain() {
 
     spinner $! "${LANG[WAITING]}"
 
-    echo -e "${COLOR_GREEN}${LANG[NODE_LAUNCHED]}${COLOR_RESET}"
-    echo -e "${COLOR_YELLOW}${LANG[NODE_NO_DOMAIN_DONE]:-Node installed without a selfsteal site (node only).}${COLOR_RESET}"
+    # Verify the container actually came up instead of unconditionally reporting
+    # success — a wrong panel IP or a crash would otherwise look like "connected".
+    sleep 2
+    if docker compose ps 2>/dev/null | grep -qiE 'remnanode.*(up|running)'; then
+        echo -e "${COLOR_GREEN}${LANG[NODE_STARTED_OK]:-Node container is up and running.}${COLOR_RESET}"
+        echo -e "${COLOR_YELLOW}${LANG[NODE_NO_DOMAIN_DONE]:-Node installed without a selfsteal site (node only).}${COLOR_RESET}"
+        echo -e "${COLOR_YELLOW}${LANG[NODE_PANEL_HINT]:-Note: the node only goes online once the panel reaches it. Make sure the node address/IP in the panel matches THIS server.}${COLOR_RESET}"
+    else
+        echo -e "${COLOR_RED}${LANG[NODE_START_FAILED]:-Node container failed to start. Check logs: cd /opt/remnanode && docker compose logs}${COLOR_RESET}"
+    fi
 }
