@@ -57,11 +57,20 @@ LANG[MENU_11]="Удалить скрипт"
 LANG[MENU_12]="Ускоритель ноды (оптимизация / защита / диагностика)"
 LANG[MENU_13]="Обновить ядро ноды (rw-core / Xray) из исходников"
 LANG[MENU_14]="Шейпер трафика (eBPF) — лимит скорости на пользователя"
+LANG[MENU_15]="Тест скорости (Ookla Speedtest)"
 LANG[MENU_GROUP_INSTALL]="Установка и управление"
 LANG[MENU_GROUP_TOOLS]="Инструменты"
 LANG[MENU_GROUP_SYSTEM]="Система"
-LANG[PROMPT_ACTION]="Выберите действие (0-13):"
-LANG[INVALID_CHOICE]="Неверный выбор. Выберите 0-13."
+LANG[PROMPT_ACTION]="Выберите действие (0-14):"
+LANG[INVALID_CHOICE]="Неверный выбор. Выберите 0-14."
+
+# --- Тест скорости ---
+LANG[ST_TITLE]="Тест скорости интернета"
+LANG[ST_SUBTITLE]="Замер скачивания/загрузки и пинга этого сервера"
+LANG[ST_INSTALL]="Устанавливаю Ookla Speedtest CLI..."
+LANG[ST_RUNNING]="Запускаю тест скорости (~30 секунд)..."
+LANG[ST_FALLBACK]="Ookla CLI недоступен, пробую speedtest-cli..."
+LANG[ST_FAIL]="Не удалось установить инструмент теста скорости. Проверьте интернет/DNS."
 
 # --- Модуль «Ускоритель ноды» ---
 LANG[NA_TITLE]="Ускоритель ноды"

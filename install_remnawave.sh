@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_VERSION="3.3.0"
+SCRIPT_VERSION="3.4.0"
 UPDATE_AVAILABLE=false
 DIR_REMNAWAVE="/usr/local/speedwave/"
 LANG_FILE="${DIR_REMNAWAVE}selected_language"
@@ -345,7 +345,7 @@ update_speedwave() {
     done
 
     # Modules (common)
-    local common_modules=("add_node" "manage_panel" "warp" "ipv6" "selfsteal_templates" "node_accelerator" "rw_core" "traffic_shaper")
+    local common_modules=("add_node" "manage_panel" "warp" "ipv6" "selfsteal_templates" "node_accelerator" "rw_core" "traffic_shaper" "speedtest")
     for module in "${common_modules[@]}"; do
         local module_file="${DIR_REMNAWAVE}modules/${module}.sh"
         if [ -f "$module_file" ]; then
@@ -628,12 +628,13 @@ show_menu() {
     menu_item 7 "${LANG[MENU_12]:-Node accelerator (optimize / protect / diagnose)}"
     menu_item 8 "${LANG[MENU_13]:-Update node core (rw-core / Xray) from source}"
     menu_item 9 "${LANG[MENU_14]:-Traffic shaper (eBPF) — per-user speed limits}"
+    menu_item 10 "${LANG[MENU_15]:-Speed test (Ookla)}"
 
     menu_head "${LANG[MENU_GROUP_SYSTEM]:-System}"
-    menu_item 10 "${LANG[MENU_8]}"  # Manage IPv6
-    menu_item 11 "${LANG[MENU_9]}"  # Manage certificates domain
-    menu_item 12 "${LANG[MENU_10]}" # Check for updates
-    menu_item 13 "${LANG[MENU_11]}" # Remove script
+    menu_item 11 "${LANG[MENU_8]}"  # Manage IPv6
+    menu_item 12 "${LANG[MENU_9]}"  # Manage certificates domain
+    menu_item 13 "${LANG[MENU_10]}" # Check for updates
+    menu_item 14 "${LANG[MENU_11]}" # Remove script
 
     echo
     menu_item 0 "${LANG[EXIT]}"
@@ -2300,6 +2301,7 @@ load_selfsteal_templates_module() { load_module "selfsteal_templates" "modules" 
 load_node_accelerator_module() { load_module "node_accelerator" "modules" "${1:-false}"; }
 load_rw_core_module() { load_module "rw_core" "modules" "${1:-false}"; }
 load_traffic_shaper_module() { load_module "traffic_shaper" "modules" "${1:-false}"; }
+load_speedtest_module() { load_module "speedtest" "modules" "${1:-false}"; }
 
 log_entry
 invalidate_stale_cache
@@ -2363,26 +2365,26 @@ case $OPTION in
         log_clear
         speedwave
         ;;
-    10)
+    11)
         load_ipv6_module
         manage_ipv6
         sleep 2
         log_clear
         speedwave
         ;;
-    11)
+    12)
         manage_certificates
         sleep 2
         log_clear
         speedwave
         ;;
-    12)
+    13)
         update_speedwave
         sleep 2
         log_clear
         speedwave
         ;;
-    13)
+    14)
         remove_script
         ;;
     7)
@@ -2403,6 +2405,14 @@ case $OPTION in
         load_traffic_shaper_module
         manage_traffic_shaper
         sleep 2
+        log_clear
+        speedwave
+        ;;
+    10)
+        load_speedtest_module
+        run_speedtest
+        echo
+        reading "${LANG[TS_ENTER]:-Press Enter to continue}" _st_dummy
         log_clear
         speedwave
         ;;

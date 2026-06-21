@@ -61,11 +61,20 @@ LANG[MENU_11]="Remove script"
 LANG[MENU_12]="Node accelerator (optimize / protect / diagnose)"
 LANG[MENU_13]="Update node core (rw-core / Xray) from source"
 LANG[MENU_14]="Traffic shaper (eBPF) — per-user speed limits"
+LANG[MENU_15]="Speed test (Ookla Speedtest)"
 LANG[MENU_GROUP_INSTALL]="Install & manage"
 LANG[MENU_GROUP_TOOLS]="Tools"
 LANG[MENU_GROUP_SYSTEM]="System"
-LANG[PROMPT_ACTION]="Select action (0-13):"
-LANG[INVALID_CHOICE]="Invalid choice. Please select 0-13"
+LANG[PROMPT_ACTION]="Select action (0-14):"
+LANG[INVALID_CHOICE]="Invalid choice. Please select 0-14"
+
+# --- Speed test ---
+LANG[ST_TITLE]="Internet speed test"
+LANG[ST_SUBTITLE]="Measures this server's download/upload and ping"
+LANG[ST_INSTALL]="Installing Ookla Speedtest CLI..."
+LANG[ST_RUNNING]="Running speed test (this takes ~30s)..."
+LANG[ST_FALLBACK]="Ookla CLI unavailable, trying speedtest-cli..."
+LANG[ST_FAIL]="Could not install a speed-test tool. Check internet/DNS."
 
 # --- Node accelerator module ---
 LANG[NA_TITLE]="Node accelerator"
