@@ -103,9 +103,6 @@ show_node_accelerator_menu() {
     menu_item 3 "${LANG[NA_DIAG]:-Diagnostics (read-only health report)}"
     menu_item 4 "${LANG[NA_ALL]:-Everything (optimize → protect → diagnose)}"
 
-    menu_head "${LANG[NA_GROUP_NODE]:-Node (remnanode)}"
-    menu_item 6 "${LANG[NA_RW_CORE]:-Update node core (rw-core / Xray) from source}"
-
     menu_head "${LANG[NA_GROUP_MAINT]:-Maintenance}"
     menu_item 5 "${LANG[NA_ROLLBACK]:-Rollback}"
 
@@ -126,7 +123,6 @@ manage_node_accelerator() {
             3) na_run diagnose ;;
             4) na_run all ;;
             5) na_rollback_menu ;;
-            6) load_rw_core_module && manage_rw_core ;;
             0) return 0 ;;
             *) msg_warn "${LANG[NA_INVALID]:-Invalid choice.}"; sleep 1; continue ;;
         esac

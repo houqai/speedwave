@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_VERSION="3.0.9"
+SCRIPT_VERSION="3.1.0"
 UPDATE_AVAILABLE=false
 DIR_REMNAWAVE="/usr/local/remnawave_reverse/"
 LANG_FILE="${DIR_REMNAWAVE}selected_language"
@@ -606,12 +606,13 @@ show_menu() {
     menu_item 5 "${LANG[MENU_6]}"   # WARP Native
     menu_item 6 "${LANG[MENU_7]}"   # Backup and Restore
     menu_item 7 "${LANG[MENU_12]:-Node accelerator (optimize / protect / diagnose)}"
+    menu_item 8 "${LANG[MENU_13]:-Update node core (rw-core / Xray) from source}"
 
     menu_head "${LANG[MENU_GROUP_SYSTEM]:-System}"
-    menu_item 8  "${LANG[MENU_8]}"  # Manage IPv6
-    menu_item 9  "${LANG[MENU_9]}"  # Manage certificates domain
-    menu_item 10 "${LANG[MENU_10]}" # Check for updates
-    menu_item 11 "${LANG[MENU_11]}" # Remove script
+    menu_item 9  "${LANG[MENU_8]}"  # Manage IPv6
+    menu_item 10 "${LANG[MENU_9]}"  # Manage certificates domain
+    menu_item 11 "${LANG[MENU_10]}" # Check for updates
+    menu_item 12 "${LANG[MENU_11]}" # Remove script
 
     echo
     menu_item 0 "${LANG[EXIT]}"
@@ -2325,31 +2326,38 @@ case $OPTION in
         log_clear
         remnawave_reverse
         ;;
-    8)
+    9)
         load_ipv6_module
         manage_ipv6
         sleep 2
         log_clear
         remnawave_reverse
         ;;
-    9)
+    10)
         manage_certificates
         sleep 2
         log_clear
         remnawave_reverse
         ;;
-    10)
+    11)
         update_remnawave_reverse
         sleep 2
         log_clear
         remnawave_reverse
         ;;
-    11)
+    12)
         remove_script
         ;;
     7)
         load_node_accelerator_module
         manage_node_accelerator
+        sleep 2
+        log_clear
+        remnawave_reverse
+        ;;
+    8)
+        load_rw_core_module
+        manage_rw_core
         sleep 2
         log_clear
         remnawave_reverse
