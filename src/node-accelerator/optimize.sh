@@ -136,6 +136,36 @@ xanmod_candidates() {
     esac
 }
 
+# After installing XanMod, make GRUB actually boot it. GRUB_DEFAULT=0 boots the
+# highest-version entry; on Ubuntu 26.04+ the stock kernel (e.g. 7.0) is NEWER than
+# XanMod LTS (6.18), so GRUB would keep booting stock and XanMod never activates.
+# Pin the XanMod menuentry explicitly via GRUB_DEFAULT=saved + grub-set-default.
+na_grub_boot_xanmod() {
+    local cfg=/boot/grub/grub.cfg
+    [ -f "$cfg" ] || cfg="$(find /boot -name grub.cfg 2>/dev/null | head -1)"
+    [ -n "$cfg" ] && [ -f "$cfg" ] || { warn "grub.cfg не найден — загрузку XanMod не переключил"; return 1; }
+    command -v grub-set-default >/dev/null 2>&1 || { warn "grub-set-default недоступен — загрузку XanMod не переключил"; return 1; }
+
+    local entry_id submenu_id
+    entry_id="$(grep -E "menuentry .*xanmod" "$cfg" | grep -v recovery | head -1 | sed -nE "s/.*menuentry_id_option '([^']+)'.*/\1/p")"
+    [ -z "$entry_id" ] && { warn "XanMod не найден в grub.cfg — загрузку не переключил"; return 1; }
+    submenu_id="$(grep -E "^submenu " "$cfg" | head -1 | sed -nE "s/.*menuentry_id_option '([^']+)'.*/\1/p")"
+
+    if grep -q '^GRUB_DEFAULT=' /etc/default/grub 2>/dev/null; then
+        sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub
+    else
+        echo 'GRUB_DEFAULT=saved' >> /etc/default/grub
+    fi
+
+    if [ -n "$submenu_id" ]; then
+        grub-set-default "${submenu_id}>${entry_id}" 2>/dev/null
+    else
+        grub-set-default "${entry_id}" 2>/dev/null
+    fi
+    update-grub >/dev/null 2>&1 || true
+    ok "GRUB переключён на загрузку XanMod по умолчанию (вступит в силу после reboot)"
+}
+
 install_xanmod() {
     setup_xanmod_repo || return 1
     info "psABI уровень CPU: x86-64-v$(cpu_psabi_level), сборка: $XANMOD_FLAVOR"
@@ -179,6 +209,7 @@ install_xanmod() {
 
     mkdir -p "$STATE_DIR"; echo "$pkg" > "$STATE_DIR/xanmod.pkg"
     update-grub >/dev/null 2>&1 || true
+    na_grub_boot_xanmod
     ok "XanMod установлен: $pkg (активируется ПОСЛЕ перезагрузки)"
     REBOOT_NEEDED=1
     return 0

@@ -42,6 +42,8 @@ rollback_optimize() {
         if [[ "${NA_REMOVE_XANMOD:-0}" == "1" ]] && ! uname -r | grep -qi xanmod; then
             info "Удаляю XanMod-пакет $pkg ..."
             DEBIAN_FRONTEND=noninteractive apt-get purge -y -qq "$pkg" >/dev/null 2>&1 || warn "не удалил $pkg"
+            # вернуть загрузку к стоковому ядру (optimize мог запиннить XanMod через GRUB_DEFAULT=saved)
+            sed -i 's/^GRUB_DEFAULT=saved/GRUB_DEFAULT=0/' /etc/default/grub 2>/dev/null || true
             update-grub >/dev/null 2>&1 || true
             # репозиторий и ключ больше не нужны — чистим, чтобы apt не ругался на suite
             rm -f /etc/apt/sources.list.d/xanmod*.list /etc/apt/keyrings/xanmod-archive-keyring.gpg
