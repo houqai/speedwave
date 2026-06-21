@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 #
 # protect.sh — 🛡 Защита ноды.
 #   • nftables (своя таблица inet na_filter, БЕЗ flush ruleset — сосуществует с

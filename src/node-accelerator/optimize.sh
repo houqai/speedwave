@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 #
 # optimize.sh — ⚡ Оптимизатор ноды.
 #   • XanMod-ядро (BBRv3) — авто-выбор сборки по psABI, пропуск на контейнерах/ARM

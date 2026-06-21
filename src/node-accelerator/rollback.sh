@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 #
 # rollback.sh — откат optimize / protect.
 # Бэкапы оригиналов остаются в /var/backups/node-accelerator/.
